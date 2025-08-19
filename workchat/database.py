@@ -3,7 +3,7 @@
 
 from sqlmodel import Session, SQLModel, create_engine
 
-# SQLite database URL - use in-memory for tests, file for dev
+# SQLite database URL for development
 DATABASE_URL = "sqlite:///./workchat.db"
 
 # Create engine with echo for development
@@ -23,5 +23,3 @@ def get_session():
         except Exception:
             session.rollback()
             raise
-        finally:
-            session.close()
