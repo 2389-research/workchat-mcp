@@ -22,7 +22,7 @@ A real-time team chat application built with FastAPI.
 4. Run linting:
    ```bash
    uv run ruff check .
-   uv run black --check .
+   uv run ruff format --check .
    uv run isort --check .
    ```
 
