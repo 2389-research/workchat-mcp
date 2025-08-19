@@ -23,6 +23,7 @@ class UserRole(str, Enum):
 class User(BaseModel, table=True):
     """User model with organization membership and role.
 
+    Extended with authentication fields for fastapi-users integration.
     Note: SQLModel with table=True doesn't support Pydantic validators.
     Input validation should be handled at the API layer.
     """
@@ -32,5 +33,19 @@ class User(BaseModel, table=True):
     email: str = Field(max_length=255, unique=True, index=True)
     role: UserRole = Field(default=UserRole.MEMBER)
 
+    # Authentication fields (added via migration)
+    hashed_password: str = Field(default="")
+    is_active: bool = Field(default=True)
+    is_superuser: bool = Field(default=False)
+    is_verified: bool = Field(default=False)
+
     # Relationship to organization
     org: "Org" = Relationship(back_populates="users")
+
+    def has_role(self, role: UserRole) -> bool:
+        """Check if user has a specific role."""
+        return self.role == role or self.is_superuser
+
+    def is_admin(self) -> bool:
+        """Check if user has admin privileges."""
+        return self.has_role(UserRole.ADMIN)
