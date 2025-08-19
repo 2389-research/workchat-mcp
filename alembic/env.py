@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # Import all models to ensure they're registered with SQLModel
-from workchat.models import BaseModel, Org, User  # noqa: F401
+from workchat.models import BaseModel, Channel, Org, User  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

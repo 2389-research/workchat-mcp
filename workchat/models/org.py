@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship
 from .base import BaseModel
 
 if TYPE_CHECKING:
+    from .channel import Channel
     from .user import User
 
 
@@ -20,5 +21,6 @@ class Org(BaseModel, table=True):
 
     name: str = Field(max_length=100, unique=True, index=True)
 
-    # Relationship to users
+    # Relationships
     users: List["User"] = Relationship(back_populates="org")
+    channels: List["Channel"] = Relationship(back_populates="org")
