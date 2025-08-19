@@ -21,7 +21,11 @@ class UserRole(str, Enum):
 
 
 class User(BaseModel, table=True):
-    """User model with organization membership and role."""
+    """User model with organization membership and role.
+
+    Note: SQLModel with table=True doesn't support Pydantic validators.
+    Input validation should be handled at the API layer.
+    """
 
     org_id: UUID = Field(foreign_key="org.id", index=True)
     display_name: str = Field(max_length=100)

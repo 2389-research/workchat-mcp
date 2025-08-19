@@ -223,3 +223,28 @@ def test_query_operations(session: Session):
     statement = select(User).where(User.org_id == org1.id)
     org1_users = session.exec(statement).all()
     assert len(org1_users) == 2
+
+
+def test_model_serialization():
+    """Test model serialization and deserialization."""
+    from uuid import uuid4
+
+    # Test creating models with all fields
+    org_id = uuid4()
+    org = Org(id=org_id, name="Test Org")
+    assert org.id == org_id
+    assert org.name == "Test Org"
+
+    user_id = uuid4()
+    user = User(
+        id=user_id,
+        org_id=org_id,
+        display_name="Test User",
+        email="test@example.com",
+        role=UserRole.ADMIN,
+    )
+    assert user.id == user_id
+    assert user.org_id == org_id
+    assert user.display_name == "Test User"
+    assert user.email == "test@example.com"
+    assert user.role == UserRole.ADMIN

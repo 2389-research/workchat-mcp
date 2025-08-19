@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 
 
 class Org(BaseModel, table=True):
-    """Organization model representing a tenant in the multi-org system."""
+    """Organization model representing a tenant in the multi-org system.
+
+    Note: SQLModel with table=True doesn't support Pydantic validators.
+    Input validation should be handled at the API layer.
+    """
 
     name: str = Field(max_length=100, unique=True, index=True)
 
