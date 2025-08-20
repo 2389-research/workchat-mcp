@@ -1,7 +1,7 @@
 # ABOUTME: Channel domain model for organizing conversations
 # ABOUTME: Defines channels within organizations with system/user channel types
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from uuid import UUID
 
 from sqlalchemy import UniqueConstraint
@@ -10,6 +10,7 @@ from sqlmodel import Field, Relationship
 from .base import BaseModel
 
 if TYPE_CHECKING:
+    from .message import Message
     from .org import Org
 
 
@@ -29,5 +30,6 @@ class Channel(BaseModel, table=True):
     description: str = Field(max_length=500, default="")
     is_system: bool = Field(default=False)
 
-    # Relationship to organization
+    # Relationships
     org: "Org" = Relationship(back_populates="channels")
+    messages: List["Message"] = Relationship(back_populates="channel")

@@ -2,7 +2,7 @@
 # ABOUTME: Links users to organizations with admin/member permissions
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from uuid import UUID
 
 from sqlmodel import Field, Relationship
@@ -10,6 +10,7 @@ from sqlmodel import Field, Relationship
 from .base import BaseModel
 
 if TYPE_CHECKING:
+    from .message import Message
     from .org import Org
 
 
@@ -39,8 +40,9 @@ class User(BaseModel, table=True):
     is_superuser: bool = Field(default=False)
     is_verified: bool = Field(default=False)
 
-    # Relationship to organization
+    # Relationships
     org: "Org" = Relationship(back_populates="users")
+    messages: List["Message"] = Relationship(back_populates="user")
 
     def has_role(self, role: UserRole) -> bool:
         """Check if user has a specific role."""

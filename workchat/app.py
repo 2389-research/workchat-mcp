@@ -3,7 +3,7 @@
 
 from fastapi import Depends, FastAPI
 
-from .api import channels_router
+from .api import channels_router, messages_router
 from .auth import (
     UserCreate,
     UserDB,
@@ -30,8 +30,9 @@ app.include_router(
     tags=["auth"],
 )
 
-# Include channels routes
+# Include API routes
 app.include_router(channels_router, prefix="/api")
+app.include_router(messages_router, prefix="/api")
 
 
 @app.get("/")
