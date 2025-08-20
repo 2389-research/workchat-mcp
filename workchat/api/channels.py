@@ -5,6 +5,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from ..auth import UserDB, current_active_user
@@ -22,33 +23,47 @@ def create_channel(
     session: Session = Depends(get_session),
 ):
     """Create a new channel in the current user's organization."""
-    # Check if channel name already exists in this org
-    existing = session.exec(
-        select(Channel).where(
-            Channel.org_id == user.org_id,
-            Channel.name == channel_data.name,
-        )
-    ).first()
-
-    if existing:
+    # Validate and normalize channel name
+    name = channel_data.name.strip()
+    if not name:
         raise HTTPException(
-            status_code=409,
-            detail=f"Channel with name '{channel_data.name}' already exists in this organization",
+            status_code=422,
+            detail="Channel name cannot be empty or only whitespace",
         )
 
     # Create new channel
     channel = Channel(
         org_id=user.org_id,
-        name=channel_data.name,
-        description=channel_data.description,
+        name=name,
+        description=channel_data.description.strip(),
         is_system=channel_data.is_system,
     )
 
-    session.add(channel)
-    session.commit()
-    session.refresh(channel)
-
-    return channel
+    try:
+        session.add(channel)
+        session.commit()
+        session.refresh(channel)
+        return channel
+    except IntegrityError as e:
+        session.rollback()
+        # Check if it's the unique constraint violation
+        if "uq_channel_name_per_org" in str(e) or "UNIQUE constraint failed" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Channel with name '{name}' already exists in this organization",
+            )
+        # Handle foreign key constraint (org_id doesn't exist)
+        elif "FOREIGN KEY constraint failed" in str(e):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid organization ID",
+            )
+        else:
+            # Re-raise for other integrity errors
+            raise HTTPException(
+                status_code=500,
+                detail="Database error occurred while creating channel",
+            )
 
 
 @router.get("/", response_model=List[ChannelRead])

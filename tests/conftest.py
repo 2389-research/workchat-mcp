@@ -21,15 +21,20 @@ engine = sqlmodel_create_engine(
     poolclass=StaticPool,
 )
 
+# Global test session for sharing between fixtures and API calls
+_test_session = None
+
 
 def override_get_session():
     """Override database session for testing."""
-    with Session(engine) as session:
-        try:
-            yield session
-        except Exception:
-            session.rollback()
-            raise
+    global _test_session
+    if _test_session is None:
+        _test_session = Session(engine)
+    try:
+        yield _test_session
+    except Exception:
+        _test_session.rollback()
+        raise
 
 
 # Override the database dependency
@@ -39,14 +44,21 @@ app.dependency_overrides[get_session] = override_get_session
 @pytest.fixture(scope="function")
 def session():
     """Create a fresh database session for each test."""
-    # Create tables
+    global _test_session
+
+    # Create tables with all constraints (including unique constraint from model definition)
     BaseModel.metadata.create_all(bind=engine)
 
-    # Create session
-    with Session(engine) as session:
-        yield session
+    # Reset the global session for this test
+    if _test_session:
+        _test_session.close()
+    _test_session = Session(engine)
+
+    yield _test_session
 
     # Clean up
+    _test_session.close()
+    _test_session = None
     BaseModel.metadata.drop_all(bind=engine)
 
 

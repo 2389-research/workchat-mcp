@@ -1,6 +1,8 @@
 # ABOUTME: Channel CRUD endpoint tests
 # ABOUTME: Test create, list, get, and duplicate name validation for channels
 
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -36,8 +38,6 @@ class TestChannelCRUD:
         assert data["org_id"] == str(test_org.id)
 
         # Verify channel was created in database
-        from uuid import UUID
-
         channel = session.get(Channel, UUID(data["id"]))
         assert channel is not None
         assert channel.name == "general"
@@ -93,6 +93,21 @@ class TestChannelCRUD:
 
         assert response.status_code == 409
         assert "already exists" in response.json()["detail"]
+
+    def test_create_channel_whitespace_validation(
+        self, client: TestClient, test_user_headers: dict
+    ):
+        """Test that channel names with only whitespace are rejected."""
+        channel_data = {
+            "name": "   ",
+        }
+
+        response = client.post(
+            "/api/channels/", json=channel_data, headers=test_user_headers
+        )
+
+        assert response.status_code == 422
+        assert "empty or only whitespace" in response.json()["detail"]
 
     def test_create_channel_requires_auth(self, client: TestClient):
         """Test that creating a channel requires authentication."""
