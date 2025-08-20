@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from ..auth import UserDB, current_active_user
 from ..database import get_session
+from ..events import broadcast_message_updated, broadcast_new_message
 from ..models import Channel, Message
 from ..schemas import MessageCreate, MessageRead, MessageUpdate
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/messages", tags=["messages"])
 
 
 @router.post("/", response_model=MessageRead, status_code=201)
-def create_message(
+async def create_message(
     channel_id: UUID,
     message_data: MessageCreate,
     user: UserDB = Depends(current_active_user),
@@ -72,6 +73,10 @@ def create_message(
             session.commit()
 
         session.refresh(message)
+
+        # Broadcast new message event
+        await broadcast_new_message(message)
+
         return message
 
     except IntegrityError as e:
@@ -136,7 +141,7 @@ def get_thread_messages(
 
 
 @router.patch("/{message_id}", response_model=MessageRead)
-def update_message(
+async def update_message(
     message_id: UUID,
     message_data: MessageUpdate,
     user: UserDB = Depends(current_active_user),
@@ -181,6 +186,10 @@ def update_message(
     try:
         session.commit()
         session.refresh(message)
+
+        # Broadcast message update event
+        await broadcast_message_updated(message)
+
         return message
 
     except IntegrityError:

@@ -12,6 +12,8 @@ from .auth import (
     current_active_user,
     fastapi_users,
 )
+from .events import get_event_stream
+from .events_simple import simple_event_stream
 
 app = FastAPI(
     title="WorkChat",
@@ -33,6 +35,10 @@ app.include_router(
 # Include API routes
 app.include_router(channels_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
+
+# SSE endpoint
+app.get("/events", response_class=None)(get_event_stream)
+app.get("/events-simple", response_class=None)(simple_event_stream)
 
 
 @app.get("/")

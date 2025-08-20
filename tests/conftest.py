@@ -1,7 +1,9 @@
 # ABOUTME: Pytest configuration and shared fixtures
 # ABOUTME: Database setup, test client, and auth fixtures for testing
 
+import httpx
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session
@@ -67,6 +69,16 @@ def client():
     """Create a test client."""
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest_asyncio.fixture
+async def async_client():
+    """Create an async test client for SSE testing."""
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as ac:
+        yield ac
 
 
 @pytest.fixture
