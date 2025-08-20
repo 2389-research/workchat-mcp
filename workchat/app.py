@@ -3,7 +3,7 @@
 
 from fastapi import Depends, FastAPI
 
-from .api import channels_router, messages_router
+from .api import channels_router, messages_router, search_router
 from .auth import (
     UserCreate,
     UserDB,
@@ -35,6 +35,7 @@ app.include_router(
 # Include API routes
 app.include_router(channels_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
+app.include_router(search_router, prefix="/api")
 
 # SSE endpoint
 app.get("/events", response_class=None)(get_event_stream)

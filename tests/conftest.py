@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session
 from sqlmodel import create_engine as sqlmodel_create_engine
+from sqlmodel import text
 
 from workchat.app import app
 from workchat.auth import current_active_user
@@ -50,6 +51,62 @@ def session():
 
     # Create tables with all constraints (including unique constraint from model definition)
     BaseModel.metadata.create_all(bind=engine)
+
+    # Create FTS5 table for search functionality
+    with engine.connect() as conn:
+        # Create FTS5 virtual table
+        conn.execute(
+            text(
+                """
+            CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
+                message_id UNINDEXED,
+                channel_id UNINDEXED,
+                body,
+                content='message',
+                content_rowid='id'
+            )
+        """
+            )
+        )
+
+        # Create triggers to keep FTS table in sync
+        conn.execute(
+            text(
+                """
+            CREATE TRIGGER IF NOT EXISTS message_fts_insert AFTER INSERT ON message
+            BEGIN
+                INSERT INTO message_fts(message_id, channel_id, body)
+                VALUES (new.id, new.channel_id, new.body);
+            END
+        """
+            )
+        )
+
+        conn.execute(
+            text(
+                """
+            CREATE TRIGGER IF NOT EXISTS message_fts_update AFTER UPDATE ON message
+            BEGIN
+                DELETE FROM message_fts WHERE message_id = old.id;
+                INSERT INTO message_fts(message_id, channel_id, body)
+                VALUES (new.id, new.channel_id, new.body);
+            END
+        """
+            )
+        )
+
+        conn.execute(
+            text(
+                """
+            CREATE TRIGGER IF NOT EXISTS message_fts_delete AFTER DELETE ON message
+            BEGIN
+                DELETE FROM message_fts WHERE message_id = old.id;
+            END
+        """
+            )
+        )
+
+        conn.commit()
 
     # Reset the global session for this test
     if _test_session:

@@ -3,6 +3,7 @@
 
 from .channel import ChannelCreate, ChannelRead, ChannelUpdate
 from .message import MessageCreate, MessageRead, MessageUpdate
+from .search import SearchParams, SearchResponse, SearchResult
 
 __all__ = [
     "ChannelCreate",
@@ -11,4 +12,7 @@ __all__ = [
     "MessageCreate",
     "MessageRead",
     "MessageUpdate",
+    "SearchParams",
+    "SearchResponse",
+    "SearchResult",
 ]
