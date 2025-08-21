@@ -148,7 +148,7 @@ class TestAuditAPI:
         session: Session,
     ):
         """Test audit log filtering by entity type and action."""
-        # Create admin user
+        # Create admin user in same org
         admin_user = User(
             org_id=test_org.id,
             display_name="Admin User",
@@ -159,12 +159,31 @@ class TestAuditAPI:
             is_verified=True,
         )
         session.add(admin_user)
+        session.commit()
 
-        # Create test audit logs
+        # Create admin user in different org for isolation test
+        other_org = Org(name="Other Org", slug="other-org")
+        session.add(other_org)
+        session.commit()
+
+        other_admin = User(
+            org_id=other_org.id,
+            display_name="Other Admin",
+            email="other-admin@example.com",
+            role=UserRole.ADMIN,
+            hashed_password="$2b$12$test_hashed_password",
+            is_active=True,
+            is_verified=True,
+        )
+        session.add(other_admin)
+        session.commit()
+
+        # Create test audit logs for test_org
         audit1 = AuditLog(
             entity_type="message",
             entity_id=test_user.id,  # Using user id as placeholder
             user_id=test_user.id,
+            org_id=test_org.id,
             action="update",
             old_values={"body": "old"},
             new_values={"body": "new"},
@@ -173,11 +192,23 @@ class TestAuditAPI:
             entity_type="channel",
             entity_id=test_user.id,  # Using user id as placeholder
             user_id=test_user.id,
+            org_id=test_org.id,
             action="create",
             new_values={"name": "test-channel"},
         )
+        # Create audit log for other_org (should be isolated)
+        audit3 = AuditLog(
+            entity_type="message",
+            entity_id=other_admin.id,
+            user_id=other_admin.id,
+            org_id=other_org.id,
+            action="update",
+            old_values={"body": "other-old"},
+            new_values={"body": "other-new"},
+        )
         session.add(audit1)
         session.add(audit2)
+        session.add(audit3)
         session.commit()
 
         # Override auth for admin
@@ -190,12 +221,14 @@ class TestAuditAPI:
         app.dependency_overrides[current_active_user] = override_current_active_user
 
         try:
-            # Test entity type filtering
+            # Test entity type filtering (should only see org-specific logs)
             response = client.get("/api/audit/?entity_type=message")
             assert response.status_code == 200
             data = response.json()
             assert len(data["audit_logs"]) == 1
             assert data["audit_logs"][0]["entity_type"] == "message"
+            # Verify it's the audit log from our test_org, not other_org
+            assert data["audit_logs"][0]["user_id"] == str(test_user.id)
 
             # Test action filtering
             response = client.get("/api/audit/?action=create")
@@ -203,6 +236,12 @@ class TestAuditAPI:
             data = response.json()
             assert len(data["audit_logs"]) == 1
             assert data["audit_logs"][0]["action"] == "create"
+
+            # Test organization isolation - should only see 2 logs from test_org, not 3 total
+            response = client.get("/api/audit/")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_count"] == 2  # Only test_org logs, not other_org
 
             # Test pagination
             response = client.get("/api/audit/?limit=1&offset=0")
@@ -243,6 +282,7 @@ class TestAuditAPI:
             entity_type="message",
             entity_id=entity_id,
             user_id=test_user.id,
+            org_id=test_org.id,
             action="create",
             new_values={"body": "original"},
         )
@@ -250,6 +290,7 @@ class TestAuditAPI:
             entity_type="message",
             entity_id=entity_id,
             user_id=test_user.id,
+            org_id=test_org.id,
             action="update",
             old_values={"body": "original"},
             new_values={"body": "updated"},
@@ -268,7 +309,10 @@ class TestAuditAPI:
         app.dependency_overrides[current_active_user] = override_current_active_user
 
         try:
-            response = client.get(f"/api/audit/entity/message/{entity_id}")
+            # Test entity history with pagination
+            response = client.get(
+                f"/api/audit/entity/message/{entity_id}?limit=10&offset=0"
+            )
             assert response.status_code == 200
             data = response.json()
 

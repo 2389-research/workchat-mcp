@@ -26,8 +26,9 @@ class AuditLog(BaseModel, table=True):
     )  # e.g., "message", "channel", "user"
     entity_id: UUID = Field(index=True)
 
-    # Who made the change
+    # Who made the change and which organization
     user_id: UUID = Field(foreign_key="user.id", index=True)
+    org_id: UUID = Field(foreign_key="org.id", index=True)
 
     # What kind of change
     action: str = Field(max_length=20, index=True)  # "create", "update", "delete"

@@ -199,7 +199,7 @@ async def update_message(
 
     # Capture old values for audit log
     audit_service = AuditService(session)
-    old_data = audit_service._entity_to_dict(message)
+    old_data = audit_service.entity_to_dict(message)
 
     # Update the message
     message.body = message_data.body.strip()
@@ -207,14 +207,16 @@ async def update_message(
     message.version += 1
 
     try:
-        # Create audit log for the change
+        # Create audit log (added to session but not committed yet)
         audit_service.track_update(
             entity=message,
             old_data=old_data,
             user_id=user.id,
+            org_id=user.org_id,
             request=request,
         )
 
+        # Commit both message changes and audit log together
         session.commit()
         session.refresh(message)
 
@@ -228,4 +230,15 @@ async def update_message(
         raise HTTPException(
             status_code=500,
             detail="Database error occurred while updating message",
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like audit validation errors)
+        session.rollback()
+        raise
+    except Exception:
+        # Handle unexpected errors without leaking details
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while updating the message",
         )

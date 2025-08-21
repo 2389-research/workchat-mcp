@@ -43,9 +43,11 @@ def list_audit_logs(
     Admin-only endpoint that returns audit log entries with pagination and filtering.
     Results are ordered by creation date (newest first).
     """
-    # Build base query
-    query = select(AuditLog)
-    count_query = select(func.count(AuditLog.id))
+    # Build base query with direct organization isolation
+    query = select(AuditLog).where(AuditLog.org_id == admin_user.org_id)
+    count_query = select(func.count(AuditLog.id)).where(
+        AuditLog.org_id == admin_user.org_id
+    )
 
     # Apply filters
     if entity_type:
@@ -85,22 +87,29 @@ def list_audit_logs(
 def get_entity_audit_history(
     entity_type: str,
     entity_id: UUID,
+    limit: int = Query(default=100, ge=1, le=500, description="Max results to return"),
+    offset: int = Query(default=0, ge=0, description="Number of results to skip"),
     admin_user: UserDB = Depends(require_admin_user),
     session: Session = Depends(get_session),
 ) -> List[AuditLogRead]:
     """
     Get complete audit history for a specific entity.
 
-    Returns all audit log entries for the specified entity,
+    Returns audit log entries for the specified entity with pagination,
     ordered chronologically (oldest first) to show the evolution of changes.
+    Only returns audit logs from the admin user's organization.
     """
+    # Direct organization isolation using org_id
     audit_logs = session.exec(
         select(AuditLog)
         .where(
             AuditLog.entity_type == entity_type,
             AuditLog.entity_id == entity_id,
+            AuditLog.org_id == admin_user.org_id,
         )
         .order_by(AuditLog.created_at.asc())
+        .offset(offset)
+        .limit(limit)
     ).all()
 
     return [AuditLogRead.model_validate(log.model_dump()) for log in audit_logs]
