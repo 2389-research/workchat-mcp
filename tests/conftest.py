@@ -54,16 +54,14 @@ def session():
 
     # Create FTS5 table for search functionality
     with engine.connect() as conn:
-        # Create FTS5 virtual table
+        # Create FTS5 virtual table (without content table to avoid internal alias conflicts)
         conn.execute(
             text(
                 """
             CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
                 message_id UNINDEXED,
                 channel_id UNINDEXED,
-                body,
-                content='message',
-                content_rowid='id'
+                body
             )
         """
             )

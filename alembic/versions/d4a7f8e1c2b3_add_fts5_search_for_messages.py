@@ -20,15 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     # Enable FTS5 extension (SQLite should have it by default)
-    # Create FTS5 virtual table for message search
+    # Create FTS5 virtual table for message search (no content table to avoid alias conflicts)
     op.execute(
         """
         CREATE VIRTUAL TABLE message_fts USING fts5(
             message_id UNINDEXED,
             channel_id UNINDEXED,
-            body,
-            content='message',
-            content_rowid='id'
+            body
         )
     """
     )

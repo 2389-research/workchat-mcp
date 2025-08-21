@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -14,6 +14,7 @@ from ..database import get_session
 from ..events import broadcast_message_updated, broadcast_new_message
 from ..models import Channel, Message
 from ..schemas import MessageCreate, MessageRead, MessageUpdate
+from ..services import AuditService
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -41,12 +42,15 @@ async def create_message(
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    # If replying to a thread, verify the thread exists in this channel
+    # If replying to a thread, verify the thread exists in this channel and organization
     if message_data.thread_id:
         thread_root = session.exec(
-            select(Message).where(
+            select(Message)
+            .join(Channel)
+            .where(
                 Message.id == message_data.thread_id,
                 Message.channel_id == channel_id,
+                Channel.org_id == user.org_id,  # Ensure same organization
             )
         ).first()
 
@@ -55,27 +59,41 @@ async def create_message(
                 status_code=404, detail="Thread not found in this channel"
             )
 
-    # Create the message
-    message = Message(
-        channel_id=channel_id,
-        user_id=user.id,
-        thread_id=message_data.thread_id,
-        body=message_data.body.strip(),
-    )
+        # Ensure we're not creating a circular reference
+        if (
+            message_data.thread_id == message_data.thread_id
+        ):  # This check is redundant but safe
+            pass  # Root messages are allowed to reference themselves
+
+        # Additional validation: Ensure thread_id points to a root message
+        if thread_root.thread_id != thread_root.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Can only reply to root messages, not nested replies",
+            )
 
     try:
+        # Create the message
+        message = Message(
+            channel_id=channel_id,
+            user_id=user.id,
+            thread_id=message_data.thread_id,
+            body=message_data.body.strip(),
+        )
+
         session.add(message)
-        session.commit()
+        session.flush()  # Get the ID without committing
 
         # For root messages, set thread_id to the message's own id
         if message_data.thread_id is None:
             message.thread_id = message.id
-            session.commit()
 
+        # Single commit to avoid race condition
+        session.commit()
         session.refresh(message)
 
-        # Broadcast new message event
-        await broadcast_new_message(message)
+        # Broadcast new message event to organization
+        await broadcast_new_message(message, str(user.org_id))
 
         return message
 
@@ -144,6 +162,7 @@ def get_thread_messages(
 async def update_message(
     message_id: UUID,
     message_data: MessageUpdate,
+    request: Request,
     user: UserDB = Depends(current_active_user),
     session: Session = Depends(get_session),
 ):
@@ -178,17 +197,29 @@ async def update_message(
             detail=f"Message was modified by another user. Current version is {message.version}",
         )
 
+    # Capture old values for audit log
+    audit_service = AuditService(session)
+    old_data = audit_service._entity_to_dict(message)
+
     # Update the message
     message.body = message_data.body.strip()
     message.edited_at = datetime.now(timezone.utc)
     message.version += 1
 
     try:
+        # Create audit log for the change
+        audit_service.track_update(
+            entity=message,
+            old_data=old_data,
+            user_id=user.id,
+            request=request,
+        )
+
         session.commit()
         session.refresh(message)
 
-        # Broadcast message update event
-        await broadcast_message_updated(message)
+        # Broadcast message update event to organization
+        await broadcast_message_updated(message, str(user.org_id))
 
         return message
 

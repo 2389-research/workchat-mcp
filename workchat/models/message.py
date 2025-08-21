@@ -26,7 +26,11 @@ class Message(BaseModel, table=True):
 
     channel_id: UUID = Field(foreign_key="channel.id", index=True)
     user_id: UUID = Field(foreign_key="user.id", index=True)
-    thread_id: Optional[UUID] = Field(default=None, index=True)
+    thread_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="message.id",  # Self-reference for thread integrity
+        index=True,
+    )
     body: str = Field(max_length=10000)
     edited_at: Optional[datetime] = Field(default=None)
     version: int = Field(default=1)

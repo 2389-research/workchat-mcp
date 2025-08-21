@@ -34,34 +34,17 @@ class SearchRepository:
         Returns:
             List of matching messages ordered by relevance
         """
-        # Build the SQL query
-        base_query = """
-            SELECT m.* FROM message m
-            INNER JOIN message_fts fts ON m.id = fts.message_id
-            WHERE message_fts MATCH :query
-        """
-
-        params = {"query": query, "limit": limit, "offset": offset}
-
-        # Add channel filter if specified
-        if channel_id:
-            base_query += " AND m.channel_id = :channel_id"
-            params["channel_id"] = str(channel_id)
-
-        # Add ordering and pagination
-        base_query += """
-            ORDER BY fts.rank
-            LIMIT :limit OFFSET :offset
-        """
-
-        # Execute the query and get message IDs first using FTS5
+        # Execute FTS query to get message IDs with ranking
         fts_query = """
             SELECT message_id FROM message_fts
             WHERE message_fts MATCH :query
         """
 
+        params = {"query": query, "limit": limit, "offset": offset}
+
         if channel_id:
             fts_query += " AND channel_id = :channel_id"
+            params["channel_id"] = str(channel_id)
 
         fts_query += """
             ORDER BY rank

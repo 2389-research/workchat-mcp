@@ -82,9 +82,10 @@ def search_messages(
                 status_code=404, detail="Channel not found or access denied"
             )
 
-    # Sanitize search query to prevent FTS injection
-    # Remove special FTS characters that could cause issues
-    sanitized_query = re.sub(r"[^\w\s\-\+\*]", " ", q).strip()
+    # Sanitize search query to prevent FTS injection while preserving useful operators
+    # Allow basic FTS5 operators: quotes for phrases, - for exclusion, * for prefix
+    # Remove only dangerous characters that could cause SQL injection
+    sanitized_query = re.sub(r'[^\w\s\-\+\*"()]', " ", q).strip()
     if not sanitized_query:
         raise HTTPException(
             status_code=400, detail="Search query contains no valid terms"
@@ -104,20 +105,27 @@ def search_messages(
         # Log the error and return user-friendly message
         raise HTTPException(status_code=400, detail="Invalid search query format")
 
-    # Filter results by user's organization access
+    # Filter results by user's organization access with single query
     # (Additional security layer beyond channel filtering)
-    filtered_messages = []
-    for message in messages:
-        # Get the message's channel to verify org access
-        msg_channel = session.exec(
+    if messages:
+        # Get all channels for these messages in one query
+        message_channel_ids = [msg.channel_id for msg in messages]
+        user_channels = session.exec(
             select(Channel).where(
-                Channel.id == message.channel_id,
-                Channel.org_id == user.org_id,  # Ensure same org
+                Channel.id.in_(message_channel_ids),
+                Channel.org_id == user.org_id,
             )
-        ).first()
+        ).all()
 
-        if msg_channel:
-            filtered_messages.append(message)
+        # Create set of accessible channel IDs for O(1) lookup
+        accessible_channel_ids = {ch.id for ch in user_channels}
+
+        # Filter messages to only those in accessible channels
+        filtered_messages = [
+            msg for msg in messages if msg.channel_id in accessible_channel_ids
+        ]
+    else:
+        filtered_messages = []
 
     # Build search results with snippets
     results = []
