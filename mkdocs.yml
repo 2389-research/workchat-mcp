@@ -1,0 +1,46 @@
+site_name: WorkChat Documentation
+site_description: Production-ready, real-time team chat application
+site_url: https://workchat.example.com
+repo_url: https://github.com/example/workchat
+repo_name: workchat
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: blue
+    accent: orange
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - Architecture: architecture.md
+  - API Reference: api.md
+  - Development: development.md
+  - Deployment: deployment.md
+  - ADR Index: adr/index.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [workchat]
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - codehilite
+  - toc:
+      permalink: true
