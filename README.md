@@ -65,8 +65,17 @@ python -m workchat.mcp
 
 ### Testing
 
+#### Backend Tests
 ```bash
 uv run pytest
+```
+
+#### Frontend E2E Tests
+```bash
+cd frontend
+npm ci
+npx playwright install
+npm run test:e2e
 ```
 
 ### Linting
