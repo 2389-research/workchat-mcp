@@ -1,0 +1,29 @@
+# ABOUTME: Docker Compose configuration for local WorkChat development
+# ABOUTME: Provides single-command startup with database and application services
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount SQLite database for persistence in development
+      - workchat_data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///app/data/workchat.db
+      - DEBUG=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  workchat_data:
+    driver: local
