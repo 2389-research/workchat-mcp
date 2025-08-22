@@ -22,7 +22,7 @@ docker compose up
 
 The application will be available at http://localhost:8000
 
-### Local Development
+### Backend Development
 
 1. Install dependencies:
    ```bash
@@ -34,10 +34,24 @@ The application will be available at http://localhost:8000
    uv run alembic upgrade head
    ```
 
-3. Start the development server:
+3. Start the backend server:
    ```bash
    uv run uvicorn workchat.app:app --reload
    ```
+
+### Frontend Development
+
+1. Install frontend dependencies:
+   ```bash
+   cd frontend && npm install
+   ```
+
+2. Start the frontend development server:
+   ```bash
+   npm run dev
+   ```
+
+Frontend will be available at http://localhost:3000 with backend proxy.
 
 ### MCP Server Mode
 
